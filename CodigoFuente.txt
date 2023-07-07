@@ -1,0 +1,143 @@
+//Bibliotecas
+#include <Servo.h>
+#include <IRremote.h>
+#include <LiquidCrystal.h>
+
+//Control remoto
+#define SENSOR_IR 11
+#define BOTON_APAGADO_ENCENDIDO 0xFF00BF00
+#define VERANO 0xEF10BF00
+#define OTONIO 0xEE11BF00
+#define INVIERNO 0xED12BF00
+#define PRIMAVERA 0xEB14BF00
+bool botonPrendido = false;
+
+//Sensor de temperatura
+#define SENSOR_TEMPERATURA A0
+int lecturaDelSensor;
+float temperatura;
+
+//Display LCD
+LiquidCrystal lcd(8, 9, 7, 10, 12, 13); 
+char texto[20];
+
+//Servo 
+Servo myServo;
+
+//LEDS
+#define LED_VERDE 5
+#define LED_ROJO 4
+
+void setup()
+{
+  IrReceiver.begin(SENSOR_IR, DISABLE_LED_FEEDBACK);
+  lcd.begin(16, 2);
+  myServo.attach(6,500,2500);
+  pinMode(LED_ROJO, OUTPUT);
+  pinMode(LED_VERDE, OUTPUT);
+}
+
+void loop()
+{ 
+  if(IrReceiver.decode())
+  {
+    detectarBotonApagadoEncendido(IrReceiver.decodedIRData.decodedRawData);
+  }
+
+  if(botonPrendido == true)
+  {
+    prenderDisplay();
+    temperatura = obtenerTemperatura();
+    informarClima(IrReceiver.decodedIRData.decodedRawData);
+  }
+  else
+  {
+    apagarDisplay();
+    digitalWrite(LED_ROJO, LOW);
+    digitalWrite(LED_VERDE, LOW);
+  }
+}
+
+float obtenerTemperatura()
+{
+  int lecturaDelSensor = analogRead(SENSOR_TEMPERATURA);
+  float temperaturaTomada = map(lecturaDelSensor, 20, 358, -40, 125);
+  
+  return temperaturaTomada;
+}
+
+void detectarBotonApagadoEncendido(float botonPresionado)
+{
+  if(botonPresionado == BOTON_APAGADO_ENCENDIDO)
+    {
+      botonPrendido = !botonPrendido;
+      lcd.clear();
+    }
+    IrReceiver.resume();
+}
+
+void informarClima(float botonPresionado)
+{
+  if(botonPresionado == VERANO)
+  {
+    strcpy(texto, "Verano   ");
+    detectarIncendio(50);
+  }
+  else if(botonPresionado == OTONIO)
+  {
+    strcpy(texto, "Otonio   ");
+    detectarIncendio(35);
+  }
+  else if(botonPresionado == INVIERNO)
+  {
+    strcpy(texto, "Invierno   ");
+    detectarIncendio(30);
+  }
+  else if(botonPresionado == PRIMAVERA)
+  {
+    strcpy(texto, "Primavera");
+    detectarIncendio(40);
+  }
+}
+
+void prender_servo()
+{
+    myServo.write(0);
+    delay(1000);
+    myServo.write(180);
+    delay(1000);
+}
+
+void detectarIncendio(int maximaTemperatura)
+{
+  if(temperatura > maximaTemperatura)
+  {
+    lcd.setCursor(0, 0);
+    lcd.print("CUIDADO!!    ");
+    lcd.setCursor(0, 1);
+    lcd.print("FUEGO!!!!     ");
+    prender_servo();
+    lcd.clear();
+    digitalWrite(LED_ROJO, HIGH);
+    digitalWrite(LED_VERDE, LOW);
+  }
+  else
+  {
+    lcd.setCursor(0, 0);
+    lcd.print(texto);
+    lcd.setCursor(0, 1);
+    lcd.print(temperatura);
+    lcd.print(" grados ");
+    digitalWrite(LED_ROJO, LOW);
+    digitalWrite(LED_VERDE, HIGH);
+  }
+}
+
+void prenderDisplay()
+{
+  lcd.display();
+}
+void apagarDisplay()
+{
+  lcd.noDisplay();
+}
